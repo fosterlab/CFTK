@@ -1,0 +1,252 @@
+---
+title: "An introduction to CFTK, the co-fractionation toolkit"
+author: "--"
+output:
+  rmarkdown::html_document:
+    theme: cerulean
+    toc: true
+    toc_float: true
+bibliography: bibliography.bib
+csl: pnas.csl
+---
+
+```{r setup, include=FALSE, message=FALSE, warning=FALSE}
+knitr::opts_chunk$set(echo = TRUE, root.dir = "~/git/CFTK")
+knitr::opts_knit$set(root.dir = "~/git/CFTK")
+options(stringsAsFactors = FALSE)
+suppressWarnings(suppressPackageStartupMessages({
+  library(tidyverse)
+  library(magrittr)
+  library(CFTK)
+}))
+setwd("~/git/CFTK")
+```
+
+CFTK, the co-fractionation toolkit, is an R package designed for the analysis of co-fractionation mass spectrometry (CF-MS) data. 
+CFTK provides convenient and flexible implementations of many of the most common analysis tasks that investigators working with CF-MS data seek to perform. These include loading CF-MS data and known protein complexes into R, preprocessing the data, filtering low-quality chromatograms, evaluating data quality, scoring proteins with similar patterns of fractionation, and integrating data across multiple replicates using a machine-learning approach. 
+
+This vignette demonstrates the major functionality of the CFTK package through application to an example dataset. 
+The CF-MS data was obtained from Kirkwood _et al._, 2013 [@kirkwood_2013], who profiled 40 size exclusion chromatography (SEC) fractions from human osteosarcoma (U2OS) cells, in three biological replicates.
+The raw data was obtained from the ProteomeXchange, under accession PXD001220, and reprocessed with MaxQuant (version 1.6.5.0), using default parameters.
+All of the data analyzed in this vignette is available from the `data-raw` folder on the GitHub repository, at https://github.com/fosterlab/CFTK.
+
+## Loading CF-MS data from MaxQuant
+
+CFTK is agnostic to the specific pipeline used to search and quantify raw mass spectrometric data. 
+However, it does provide a convenience function to import CF-MS chromatograms searched using MaxQuant [@tyanova_2016], by parsing MaxQuant `proteinGroups.txt` files.
+This functionality is implemented in the `read_maxquant()` function, which allows the user to import chromatograms using multiple different quantitation modes (providing, of course, that the information is present in the file), including iBAQ, MaxLFQ, MS1 intensity, spectral counts, and isotopologue ratios.
+The function also provides a method to map protein groups to genes, using information contained in the `Gene names` column of the `proteinGroups.txt` file.
+To read the first replicate from PXD001220, using the label-free quantitation implemented in MaxLFQ and mapping protein groups to gene names, run the following function:
+
+```{r}
+filepath = "data-raw/PXD001220/rep1/proteinGroups.txt.gz"
+mat = read_maxquant(filepath, quant_mode = "MaxLFQ", identifiers = 'genes')
+dim(mat)
+str(mat)
+```
+
+<!-- The metadata output in the `proteinGroups.txt` remains associated with the matrix and can be accessed with the `attr` function: -->
+
+<!-- ```{r} -->
+<!-- meta = attr(mat, 'metadata') -->
+<!-- dim(meta) -->
+<!-- ``` -->
+
+## Loading known protein complexes from CORUM
+
+Investigators often seek to compare CF-MS data to known protein complexes for a variety of purposes.
+For this reason, CFTK provides a convenience function to read protein complex data distributed through the CORUM database [@giurgiu_2019], using the `read_corum()` function, although CFTK is similarly agnostic to the source of known protein complexes (or binary protein-protein interactions) used for CF-MS data analysis. 
+This function allows the user to map complex subunits to either UniProt accessions, Entrez gene IDs, or gene names.
+CFTK also provides a variety of functions to convert protein complex data between various R data structures, including tidy data frames, lists, adjacency matrices, and pairwise data frames enumerating all intra-complex interactions.
+
+To read the 'core' set of CORUM protein complexes, mapping subunits to their gene symbols, run the following function:
+
+```{r}
+corum = read_corum("data-raw/CORUM/coreComplexes.txt.gz", identifiers = 'gene_name')
+head(corum)
+```
+
+The `read_corum()` function returns a data frame in which the first column contains complex names, and the second column contains complex subunits.
+Often, however, we need to convert this data into a different format.
+For example, we might wish to convert this data frame into a list, where each entry represents a protein complex and contains a vector of its subunits. 
+This can be achieved using the function `as_annotation_list()`:
+
+```{r}
+complex_list = as_annotation_list(corum, 'complex', 'subunit')
+str(complex_list[1:5])
+```
+
+Alternatively, we might wish to enunmerate all possible pairs of proteins that are members of the same protein complex.
+From a list of protein complexes, we can construct a pairwise data frame of intra-complex pairs using the function `to_pairwise_df()`:
+
+```{r}
+complex_pairs = to_pairwise_df(complex_list)
+head(complex_pairs)
+```
+
+Finally, we might wish to create an adjacency matrix, in which each cell represents a potential protein-protein interaction and intra-complex pairs are marked as ones. 
+This can be done from the pairwise data frame using the function `to_adjacency_matrix()`:
+
+```{r}
+complex_adj = to_adjacency_matrix(complex_pairs)
+str(complex_adj)
+```
+
+These different representations of protein complexes are used by various functions throughout the CFTK package.
+
+## Loading functional annotations from the Gene Ontology
+
+CFTK also provides a utility function to read protein function annotations from the Gene Ontology in GAF format, implemented in the function `read_gaf()`. 
+This function also allows users to filter the GO: for instance, by removing annotations with less reliable or potentially recursive evidence codes, such as 'IEA' (inferred by electronic annotation) or 'IPI' (inferred from physical interaction).
+To read Gene Ontology annotations for human, removing interactions with the code 'IEA', run the following function:
+
+```{r warning=FALSE}
+goa = read_gaf("data-raw/GO/goa_human.gaf.gz", filter_evidence = "IEA")
+head(goa)
+```
+
+CFTK also provides a convenience function, `go_roots()`, which returns a vector containing the Gene Ontology codes for 'biological process', 'molecular function', and 'cellular compartment'.
+This function can be used to filter these terms, which are usually considered uninteresting, from the set of annotations:
+
+```{r}
+goa %<>% filter(!`GO ID` %in% go_roots())
+```
+
+To create a list in which each entry is a GO term, and contains a vector of all proteins annotated to that GO term, we can again make use of the function `as_annotation_list()`: 
+
+```{r}
+go_ann = as_annotation_list(goa, 'GO ID', 'DB Object Symbol')
+str(go_ann[1:5])
+```
+
+## Preprocessing CF-MS data
+
+Having read one or more CF-MS datasets into an R session, CFTK now provides several functions to pre-process the data. 
+Low-quality chromatograms can be removed with the `filter_matrix()` function, which removes proteins not quantified in a certain minimum number of fractions.
+These typically represent a minority of identified proteins but in some cases, can account for a substantial fraction:
+
+```{r}
+dim(mat)
+mat %<>% filter_matrix(min_fractions = 4)
+dim(mat)
+```
+
+Missing values are ubiquitous in CF-MS data, occurring for example in SEC data because proteins do not participate in any macromolecular complexes at the approximate molecular weight of a particular fraction, and can be handled in several different ways.
+CFTK provides the `sanitize_missing_values()` and `replace_missing_values()` functions to deal with missing values.
+The first, `sanitize_missing_values()`, identifies `NA`s, `NaN`s, infinite values, and zeroes, and replaces them all with `NA`s. 
+The second, `replace_missing_values()`, both enforces this consistent representation of missing data and then optionally replaces them either with zeroes, or random near-zero noise. 
+To treat all missing values as zeroes, run the following command:
+
+```{r}
+mat %<>% replace_missing_values(missing = 'zero')
+```
+
+Finally, CFTK also provides the `transform_matrix()` function to normalize the matrix, although we suggest that this function should be used sparingly and only when appropriate.
+This can be achieved either by log-transformation (because CF-MS data is approximately log-normally distributed), or quantile normalization.
+Users must be cautious about the order in which these operations are performed.
+For instance, replacing missing values with zeroes must be done _after_ log-transformation, or this transformation may introduce a large number of `-Inf` values. 
+Similarly, users wishing to treat missing values as zeroes should perform quantile normalization only _after_ this step is complete. 
+We suggest the following order of operations: 
+
+i. filter the matrix
+ii. log-transform chromatograms (optional)
+iii. handle missing values
+iv. quantile normalization (optional)
+
+## Identifying co-eluting protein pairs
+
+One of the central tasks in CF-MS data analysis is to identify pairs (or groups) of proteins with similar patterns of elution across a chromatographic separation.
+This is commonly achieved using ubiquitous measures of association such as the Pearson correlation or Euclidean distance.
+In addition to these, CFTK implements a total of 24 measures of association that have been proposed for CF-MS or more general '-omics' data analysis.
+These can be applied to obtain a square matrix, scoring the similarity of every protein pair in the experiment, using the `score_pairs()` function.
+For example, to score all protein pairs using the Bray-Curtis distance, enter the following command:
+
+```{r}
+pairs = score_pairs(mat, metric = 'bray_curtis')
+str(pairs)
+```
+
+The complete list of all 24 metrics can be accessed using the `metrics()` function.
+
+```{r}
+metrics()
+```
+
+The matrix of protein pairs can itself be filtered to replace pairs of proteins that were not _jointly_ detected in some minimum number of fractions with `NA`s, using the `filter_pairs()` function.
+For instance, to mask protein pairs that did not co-occur in at least one fraction, enter the following command:
+
+```{r}
+pairs0 = filter_pairs(pairs, mat, min_pairs = 1)
+```
+
+## Combining information across replicates
+
+While the `score_pairs()` function implements a number of different approaches to scoring co-eluting protein pairs within a single CF-MS experiment, investigators generally collect multiple CF-MS replicates from the same biological system in order to enable more robust network inference.
+The standard workflow for combining information across multiple replicates involves the application of a machine-learning workflow to score interacting protein pairs, by learning from a dataset of known protein complexes.
+(The same workflow can be applied to integrate evidence from multiple features within a single CF-MS replicate). 
+Briefly, after calculating one or more measures of association (or 'features') for each protein pair in each replicate, these features are merged across replicates to create a single, consolidate data frame scoring every possible protein pair.
+Then, a 'gold standard' set of protein-protein interactions is loaded---for example, intra-complex interactions from the CORUM database.
+The 'gold standard' is split into a number of folds, and a series of machine-learning classifiers are trained on the features using the gold standard, with each fold excluded one at a time.
+The trained classifiers are used to compute the likelihood that all protein pairs _not_ overlapping with the training set are interacting, based on the same CF-MS features. 
+Protein pairs are then sorted by their mean classifier score across all folds, in descending order, to obtain a ranked list of all candidate protein-protein interactions. 
+
+Implementing the workflow described above using CFTK proceeds as follows.
+First, features for every protein pair must be calculated and merged into a single data frame. 
+This can be done by repeatedly applying the `score_pairs()` function to caluclate various features of interest, then merging them using the `merge_features()` function.
+The use of this function is demonstrated below to concatenace the Pearson correlation and Euclidean distance in a single replicate: 
+
+```{r warning=FALSE}
+pairs1 = score_pairs(mat, metric = 'pearson')
+pairs2 = score_pairs(mat, metric = 'euclidean')
+feature_df = merge_features(list(pairs1, pairs2))
+head(feature_df)
+```
+
+Alternatively, if only a single measure of association is of interest, this can be calculated for a list of CF-MS matrices using the `calculate_features()` function. 
+For instance, to calculate the Pearson correlation for three matrices simultaneously, run the following command:
+
+```{r warning=FALSE}
+replicates = c('rep1', 'rep2', 'rep3')
+filepaths = file.path("data-raw/PXD001220", replicates, "proteinGroups.txt.gz")
+mats = map(filepaths, read_maxquant, quant_mode = "MaxLFQ", identifiers = 'genes')
+feature_df = calculate_features(mats, metric = 'pearson')
+head(feature_df)
+```
+
+These two functions can be mixed and matched: for example, to calculate _two_ measures of association per replicate, we could run the `calculate_features()` function again, then run `merge_features()`, like so:
+
+```{r warning=FALSE}
+feature_df1 = feature_df
+feature_df2 = calculate_features(mats, metric = 'euclidean')
+feature_df = merge_features(list(feature_df1, feature_df2))
+head(feature_df)
+```
+
+When features are obtained from multiple replicates, there will typically be missing values, because not all proteins are quantified in all replicates.
+Some classifiers, such as the naive Bayes, can naturally handle these missing values.
+However, most will throw an error if missing values are included in the input.
+The `impute_missing_features()` function can be used to replace these missing values with the median value for that feature, plus or minus some random noise:
+
+```{r}
+feature_df %<>% impute_missing_features()
+```
+
+Having calculated a series of features for this experiment, we are now ready to provide it as input to the cross-validation procedure, along with the complexes from the CORUM database that we loaded in above.
+This procedure is implemented in the `score_interactions()` function, which allows the user to specify the number of cross-validation folds to perform (the default is 10) and select a classifier (one of 'NB' for naive Bayes, 'RF' for random forest, 'SVM' for support vector machine, or 'LR' for logistic regression). 
+The `score_interactions()` function also allows the user to control the way in which cross-validation is performed.
+Specifically, the 'gold standard' complexes can be divided into folds that are disjoint either with respect to individual protein subunits (argument `split_by = 'proteins'`), or with respect to pairwise interactions (`split_by = 'pairs'`). 
+Although splitting complexes by interacting pairs provides more data to the classifier, it can lead to overfitting. 
+These cross-validation procedures are implemented in the `split_by()` function.
+
+To run the `score_interactions()` function, enter the following command.
+(Note that this can take quite a while to run, depending on the size of the dataset, classifier selection, and number of cross-validation folds, so the code below is not run within this vignette). 
+
+```{r eval=FALSE}
+## not run
+interactions = score_interactions(feature_df, complex_pairs, n_folds = 3, classifier = 'NB')
+```
+
+This concludes the demonstration of the main functionality in the CFTK package.
+For more information, explore the R documentation, and please do not hesitate to contact us with any error reports at http://github.com/fosterlab/CFTK/issues. 
+
+## References
