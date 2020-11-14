@@ -47,9 +47,9 @@ To install CFTK, first install the devtools package, if it is not already instal
 Then, install the required dependencies from [Bioconductor](https://www.bioconductor.org/):
 
 ```r
-if (!requireNamespace("BiocManager", quietly = TRUE))
-    install.packages("BiocManager")
-BiocManager::install(c("AnnotationDbi", "GO.db", "preprocessCore", "impute", "Pigengene", "GENIE3"))
+> if (!requireNamespace("BiocManager", quietly = TRUE))
+>     install.packages("BiocManager")
+> BiocManager::install(c("AnnotationDbi", "GO.db", "preprocessCore", "impute", "Pigengene", "GENIE3"))
 ```
 
 Next, the `wccsom` package, which is no longer distributed via CRAN, must be manually installed. To do so, download and extract the `wccsom` package from [https://cran.r-project.org/src/contrib/Archive/wccsom/wccsom_1.2.11.tar.gz](https://cran.r-project.org/src/contrib/Archive/wccsom/wccsom_1.2.11.tar.gz). For example, on Unix systems, this can be done using `wget` by entering the following commands into a terminal: 
