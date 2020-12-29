@@ -48,7 +48,7 @@ Then, install the required dependencies from [Bioconductor](https://www.biocondu
 
 ```r
 > if (!requireNamespace("BiocManager", quietly = TRUE))
->     install.packages("BiocManager")
+      install.packages("BiocManager")
 > BiocManager::install(c("AnnotationDbi", "GO.db", "preprocessCore", "impute", "Pigengene", "GENIE3"))
 ```
 
