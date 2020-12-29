@@ -52,6 +52,12 @@ Then, install the required dependencies from [Bioconductor](https://www.biocondu
 > BiocManager::install(c("AnnotationDbi", "GO.db", "preprocessCore", "impute", "Pigengene", "GENIE3"))
 ```
 
+Also install the `kohonen` package, which is required by `wccsom`: 
+
+```r
+> install.packages("kohonen")
+```
+
 Next, the `wccsom` package, which is no longer distributed via CRAN, must be manually installed. To do so, download and extract the `wccsom` package from [https://cran.r-project.org/src/contrib/Archive/wccsom/wccsom_1.2.11.tar.gz](https://cran.r-project.org/src/contrib/Archive/wccsom/wccsom_1.2.11.tar.gz). For example, on Unix systems, this can be done using `wget` by entering the following commands into a terminal: 
 
 ```
@@ -63,6 +69,12 @@ Then, open R and install `wccsom` using devtools:
 
 ```r
 > devtools::install("wccsom")
+```
+
+On a Windows machine, installing `wccsom` is slightly more complicated. First, navigate to [https://cran.r-project.org/src/contrib/Archive/wccsom/wccsom_1.2.11.tar.gz](https://cran.r-project.org/src/contrib/Archive/wccsom/wccsom_1.2.11.tar.gz) using a web browser in order to download the `wccsom` package. Then, download [Rtools](https://cran.rstudio.com/bin/windows/Rtools/) and follow the installation instructions. Last, from R, install `wccsom` by entering the following command, replacing the string `MyUserName` with your own username, or updating the path to the `wccsom` package as needed. 
+
+```r
+> install.packages("C:\\Users\\MyUserName\\Downloads\\wccsom_1.2.11.tar.gz", repos = NULL, type = "source")
 ```
 
 Finally, install CFTK from GitHub using devtools:
