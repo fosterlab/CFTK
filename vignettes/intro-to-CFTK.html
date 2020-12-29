@@ -1517,6 +1517,9 @@ div.tocify {
 
 <p>CFTK, the co-fractionation toolkit, is an R package designed for the analysis of co-fractionation mass spectrometry (CF-MS) data. CFTK provides convenient and flexible implementations of many of the most common analysis tasks that investigators working with CF-MS data seek to perform. These include loading CF-MS data and known protein complexes into R, preprocessing the data, filtering low-quality chromatograms, evaluating data quality, scoring proteins with similar patterns of fractionation, and integrating data across multiple replicates using a machine-learning approach.</p>
 <p>This vignette demonstrates the major functionality of the CFTK package through application to an example dataset. The CF-MS data was obtained from Kirkwood <em>et al.</em>, 2013 <span class="citation">(1)</span>, who profiled 40 size exclusion chromatography (SEC) fractions from human osteosarcoma (U2OS) cells, in three biological replicates. The raw data was obtained from the ProteomeXchange, under accession PXD001220, and reprocessed with MaxQuant (version 1.6.5.0), using default parameters. All of the data analyzed in this vignette is available from the <code>data-raw</code> folder on the GitHub repository, at <a href="https://github.com/fosterlab/CFTK" class="uri">https://github.com/fosterlab/CFTK</a>.</p>
+<p>The code presented in this vignette assumes that you have set your working directory to the location of the CFTK package. This can be accomplished using the <code>setwd</code> function. For example, if you are using a Linux or macOS machine and have downloaded the CFTK package to a directory named <code>git</code> inside your home directory, run the following command:</p>
+<pre class="r"><code>setwd(&quot;~/git/CFTK&quot;)</code></pre>
+<p>Adjust the path to the CFTK package directory as needed.</p>
 <div id="loading-cf-ms-data-from-maxquant" class="section level2">
 <h2>Loading CF-MS data from MaxQuant</h2>
 <p>CFTK is agnostic to the specific pipeline used to search and quantify raw mass spectrometric data. However, it does provide a convenience function to import CF-MS chromatograms searched using MaxQuant <span class="citation">(2)</span>, by parsing MaxQuant <code>proteinGroups.txt</code> files. This functionality is implemented in the <code>read_maxquant()</code> function, which allows the user to import chromatograms using multiple different quantitation modes (providing, of course, that the information is present in the file), including iBAQ, MaxLFQ, MS1 intensity, spectral counts, and isotopologue ratios. The function also provides a method to map protein groups to genes, using information contained in the <code>Gene names</code> column of the <code>proteinGroups.txt</code> file. To read the first replicate from PXD001220, using the label-free quantitation implemented in MaxLFQ and mapping protein groups to gene names, run the following function:</p>
@@ -1537,6 +1540,10 @@ dim(mat)</code></pre>
 <!-- meta = attr(mat, 'metadata') -->
 <!-- dim(meta) -->
 <!-- ``` -->
+<p>Because the <code>read_maxquant</code> function wraps the base R function <code>read.delim</code>, the filepath can also be a remote URL. For instance, if we wished to read a <code>proteinGroups.txt</code> file hosted on the server “my-website.com”, we could simply pass in the full URL of the file instead:</p>
+<pre class="r"><code>filepath = &quot;http://my-website.com/maxquant/PXD001220/rep1/proteinGroups.txt.gz&quot;
+mat = read_maxquant(filepath, quant_mode = &quot;MaxLFQ&quot;, identifiers = 'genes')</code></pre>
+<p>As mentioned, CFTK is not limited to MaxQuant outputs, but can work with chromatograms obtained from any database search program. For alternative search programs, CFTK simply expects a numeric matrix, with proteins in rows and fractions in columns. Please note that this matrix must have rownames set in order to link calculated features or predicted interactions to the proteins identified within the CF-MS experiment.</p>
 </div>
 <div id="loading-known-protein-complexes-from-corum" class="section level2">
 <h2>Loading known protein complexes from CORUM</h2>
