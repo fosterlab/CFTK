@@ -27,7 +27,7 @@ read_corum = function(filepath,
             ", was expecting coreComplexes.txt")
   
   # read data
-  dat = read.delim(filepath)
+  dat = read.delim(filepath, stringsAsFactors = FALSE)
   # tag identifier
   column = switch(identifiers,
                   uniprot = 'subunits.UniProt.IDs.',
