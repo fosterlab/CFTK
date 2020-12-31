@@ -30,8 +30,8 @@ read_gaf = function(filepath,
                     filter_evidence = NULL,
                     ontology = NULL, 
                     propagate = TRUE) {
-  goa = suppressMessages(
-    readr::read_tsv(filepath, comment = "!", col_names = gaf_colnames()))
+  goa = suppressWarnings(suppressMessages(
+    readr::read_tsv(filepath, comment = "!", col_names = gaf_colnames())))
   
   # optionally, filter annotations with the qualifier NOT
   if (filter_NOT) 
