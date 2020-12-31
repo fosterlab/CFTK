@@ -38,7 +38,17 @@ For example, if you are using a Linux or macOS machine and have downloaded the C
 setwd("~/git/CFTK")
 ```
 
-Adjust the path to the CFTK package directory as needed.
+Adjust the path to the CFTK package directory as needed. 
+
+The code in this vignette also makes use of functions from the `magrittr`, `dplyr`, and `purrr` packages, which are installed along with the CFTK package.
+Load these packages before running this code, and set `stringsAsFactors` to `FALSE`, using the following command:
+
+```{r eval=FALSE}
+library(magrittr)
+library(dplyr)
+library(purrr)
+options(stringsAsFactors = FALSE)
+```
 
 ## Loading CF-MS data from MaxQuant
 
@@ -215,7 +225,7 @@ Protein pairs are then sorted by their mean classifier score across all folds, i
 Implementing the workflow described above using CFTK proceeds as follows.
 First, features for every protein pair must be calculated and merged into a single data frame. 
 This can be done by repeatedly applying the `score_pairs()` function to caluclate various features of interest, then merging them using the `merge_features()` function.
-The use of this function is demonstrated below to concatenace the Pearson correlation and Euclidean distance in a single replicate: 
+The use of this function is demonstrated below to concatenate the Pearson correlation and Euclidean distance in a single replicate: 
 
 ```{r warning=FALSE}
 pairs1 = score_pairs(mat, metric = 'pearson')
