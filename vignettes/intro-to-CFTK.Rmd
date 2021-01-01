@@ -84,6 +84,23 @@ As mentioned, CFTK is not limited to MaxQuant outputs, but can work with chromat
 For alternative search programs, CFTK simply expects a numeric matrix, with proteins in rows and fractions in columns. 
 Please note that this matrix must have rownames set in order to link calculated features or predicted interactions to the proteins identified within the CF-MS experiment.
 
+During the development of the CFTK package, we systematically re-analyzed 206 published CF-MS experiments using MaxQuant.
+The processed chromatograms obtained from this re-analysis are available from Zenodo, at [https://zenodo.org/record/4106578#.X--haulKh24](https://zenodo.org/record/4106578#.X--haulKh24). 
+In this upload, separate chromatogram matrices are provided for each protein quantification method implemented in MaxQuant (e.g., iBAQ vs. MaxLFQ). 
+A sample of the chromatograms available from Zenodo is also available in the `data-raw` directory. 
+To read one of these chromatograms into R as a numeric matrix for use with the CFTK, enter the following command:
+
+```{r eval=FALSE}
+mat = read.delim("data-raw/zenodo/PXD001220/rep1/iBAQ.tsv.gz") %>%
+  as.matrix()
+```
+
+To keep only the first UniProt accession associated with each protein group, enter the following command:
+
+```{r eval=FALSE}
+rownames(mat) %<>% gsub(";.*$", "", .)
+```
+
 ## Loading known protein complexes from CORUM
 
 Investigators often seek to compare CF-MS data to known protein complexes for a variety of purposes.
