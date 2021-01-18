@@ -1520,13 +1520,13 @@ div.tocify {
 <p>The code presented in this vignette assumes that you have set your working directory to the location of the CFTK package. This can be accomplished using the <code>setwd</code> function. For example, if you are using a Linux or macOS machine and have downloaded the CFTK package to a directory named <code>git</code> inside your home directory, run the following command:</p>
 <pre class="r"><code>setwd(&quot;~/git/CFTK&quot;)</code></pre>
 <p>Adjust the path to the CFTK package directory as needed.</p>
-<p>The code in this vignette also makes use of functions from the <code>magrittr</code>, <code>dplyr</code>, and <code>purrr</code> packages, which are installed along with the CFTK package. Load these packages before running this code, and set <code>stringsAsFactors</code> to <code>FALSE</code>, using the following command:</p>
+<p>The code in this vignette also makes use of functions from the <code>magrittr</code>, <code>dplyr</code>, and <code>purrr</code> packages, which are installed along with the CFTK package. Load these packages before running this code, and set <code>stringsAsFactors</code> to <code>FALSE</code>, using the following commands:</p>
 <pre class="r"><code>library(magrittr)
 library(dplyr)
 library(purrr)
 options(stringsAsFactors = FALSE)</code></pre>
-<div id="loading-cf-ms-data-from-maxquant" class="section level2">
-<h2>Loading CF-MS data from MaxQuant</h2>
+<div id="loading-cf-ms-data" class="section level2">
+<h2>Loading CF-MS data</h2>
 <p>CFTK is agnostic to the specific pipeline used to search and quantify raw mass spectrometric data. However, it does provide a convenience function to import CF-MS chromatograms searched using MaxQuant <span class="citation">(2)</span>, by parsing MaxQuant <code>proteinGroups.txt</code> files. This functionality is implemented in the <code>read_maxquant()</code> function, which allows the user to import chromatograms using multiple different quantitation modes (providing, of course, that the information is present in the file), including iBAQ, MaxLFQ, MS1 intensity, spectral counts, and isotopologue ratios. The function also provides a method to map protein groups to genes, using information contained in the <code>Gene names</code> column of the <code>proteinGroups.txt</code> file. To read the first replicate from PXD001220, using the label-free quantitation implemented in MaxLFQ and mapping protein groups to gene names, run the following function:</p>
 <pre class="r"><code>filepath = &quot;data-raw/PXD001220/rep1/proteinGroups.txt.gz&quot;
 mat = read_maxquant(filepath, quant_mode = &quot;MaxLFQ&quot;, identifiers = 'genes')
@@ -1554,6 +1554,18 @@ mat = read_maxquant(filepath, quant_mode = &quot;MaxLFQ&quot;, identifiers = 'ge
   as.matrix()</code></pre>
 <p>To keep only the first UniProt accession associated with each protein group, enter the following command:</p>
 <pre class="r"><code>rownames(mat) %&lt;&gt;% gsub(&quot;;.*$&quot;, &quot;&quot;, .)</code></pre>
+<p>As a final example, we will demonstrate how to read in data from an Excel spreadsheet into a numeric matrix. We demonstrate this using data from Gilbert and Schulze, 2019 <span class="citation">(3)</span>. The spreadsheet ‘pr8b00382_si_002.xlsx’ that is included in the data-raw directory corresponds to Supporting Table S1 of the original publication, and was downloaded from the Journal of Proteome Research website. The following commands, which make use of the <code>readxl</code> package, read in the supplementary table and extract protein quantitation values into a numeric matrix. Then, the rownames of the matrix are set to the protein IDs.</p>
+<pre class="r"><code>library(readxl)
+
+# read data from Excel spreadsheet
+rep1 = read_excel(&quot;data/supplements/Gilbert2019/pr8b00382_si_002.xlsx&quot;, 
+                  sheet = 2)
+
+# extract LFQ protein quantitations
+mat1 = rep1 %&gt;%
+  dplyr::select(starts_with('LFQ')) %&gt;%
+  as.matrix() %&gt;%
+  set_rownames(rep1$`Protein IDs`)</code></pre>
 </div>
 <div id="preprocessing-cf-ms-data" class="section level2">
 <h2>Preprocessing CF-MS data</h2>
@@ -1663,7 +1675,7 @@ head(feature_df)</code></pre>
 </div>
 <div id="loading-known-protein-complexes-from-corum" class="section level2">
 <h2>Loading known protein complexes from CORUM</h2>
-<p>At this point, we have loaded a collection of CF-MS datasets, preprocessed them, computed one or more features for each dataset, and combined multiple features into a single data frame. The next step is to distinguish protein-protein interactions from non-interacting pairs, based on these features. To achieve this, CFTK uses a supervised machine-learning framework. Conceptually, CFTK takes a set of known protein-protein interactions as input, and learns what values the features we have computed tend to take on for known interacting pairs. To do so, CFTK requires a set of known protein-protein interactions to learn from. CFTK provides a convenience function to read protein complex data distributed through the CORUM database <span class="citation">(3)</span>, using the <code>read_corum()</code> function, which allows the user to map complex subunits to either UniProt accessions, Entrez gene IDs, or gene names. However, CFTK is agnostic to the source of known protein complexes (or binary protein-protein interactions) used for CF-MS data analysis, and can easily learn from an alternative resource of known protein-protein interactions. CFTK also provides a variety of functions to convert protein complex data between various R data structures, including tidy data frames, lists, adjacency matrices, and pairwise data frames enumerating all intra-complex interactions.</p>
+<p>At this point, we have loaded a collection of CF-MS datasets, preprocessed them, computed one or more features for each dataset, and combined multiple features into a single data frame. The next step is to distinguish protein-protein interactions from non-interacting pairs, based on these features. To achieve this, CFTK uses a supervised machine-learning framework. Conceptually, CFTK takes a set of known protein-protein interactions as input, and learns what values the features we have computed tend to take on for known interacting pairs. To do so, CFTK requires a set of known protein-protein interactions to learn from. CFTK provides a convenience function to read protein complex data distributed through the CORUM database <span class="citation">(4)</span>, using the <code>read_corum()</code> function, which allows the user to map complex subunits to either UniProt accessions, Entrez gene IDs, or gene names. However, CFTK is agnostic to the source of known protein complexes (or binary protein-protein interactions) used for CF-MS data analysis, and can easily learn from an alternative resource of known protein-protein interactions. CFTK also provides a variety of functions to convert protein complex data between various R data structures, including tidy data frames, lists, adjacency matrices, and pairwise data frames enumerating all intra-complex interactions.</p>
 <p>To read the ‘core’ set of CORUM protein complexes, mapping subunits to their gene symbols, run the following function:</p>
 <pre class="r"><code>corum = read_corum(&quot;data-raw/CORUM/coreComplexes.txt.gz&quot;, identifiers = 'gene_name')
 head(corum)</code></pre>
@@ -1798,8 +1810,11 @@ format(auc, digits = 3)</code></pre>
 <div id="ref-tyanova_2016">
 <p>2. Tyanova S, Temu T, Cox J (2016) The MaxQuant computational platform for mass spectrometry-based shotgun proteomics. <em>Nat Protoc</em> 11(12):2301–2319.</p>
 </div>
+<div id="ref-gilbert_2019">
+<p>3. Gilbert M, Schulze WX (2019) Global identification of protein complexes within the membrane proteome of arabidopsis roots using a SEC-MS approach. <em>J Proteome Res</em> 18(1):107–119.</p>
+</div>
 <div id="ref-giurgiu_2019">
-<p>3. Giurgiu M, et al. (2019) CORUM: The comprehensive resource of mammalian protein complexes—2019. <em>Nucleic Acids Res</em> 47(D1):D559–D563.</p>
+<p>4. Giurgiu M, et al. (2019) CORUM: The comprehensive resource of mammalian protein complexes—2019. <em>Nucleic Acids Res</em> 47(D1):D559–D563.</p>
 </div>
 </div>
 </div>

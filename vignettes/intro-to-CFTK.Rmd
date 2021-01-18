@@ -41,7 +41,7 @@ setwd("~/git/CFTK")
 Adjust the path to the CFTK package directory as needed. 
 
 The code in this vignette also makes use of functions from the `magrittr`, `dplyr`, and `purrr` packages, which are installed along with the CFTK package.
-Load these packages before running this code, and set `stringsAsFactors` to `FALSE`, using the following command:
+Load these packages before running this code, and set `stringsAsFactors` to `FALSE`, using the following commands:
 
 ```{r eval=FALSE}
 library(magrittr)
@@ -50,7 +50,7 @@ library(purrr)
 options(stringsAsFactors = FALSE)
 ```
 
-## Loading CF-MS data from MaxQuant
+## Loading CF-MS data
 
 CFTK is agnostic to the specific pipeline used to search and quantify raw mass spectrometric data. 
 However, it does provide a convenience function to import CF-MS chromatograms searched using MaxQuant [@tyanova_2016], by parsing MaxQuant `proteinGroups.txt` files.
@@ -99,6 +99,26 @@ To keep only the first UniProt accession associated with each protein group, ent
 
 ```{r eval=FALSE}
 rownames(mat) %<>% gsub(";.*$", "", .)
+```
+
+As a final example, we will demonstrate how to read in data from an Excel spreadsheet into a numeric matrix.
+We demonstrate this using data from Gilbert and Schulze, 2019 [@gilbert_2019]. 
+The spreadsheet 'pr8b00382_si_002.xlsx' that is included in the data-raw directory corresponds to Supporting Table S1 of the original publication, and was downloaded from the Journal of Proteome Research website. 
+The following commands, which make use of the `readxl` package, read in the supplementary table and extract protein quantitation values into a numeric matrix.
+Then, the rownames of the matrix are set to the protein IDs.
+
+```{r eval=FALSE}
+library(readxl)
+
+# read data from Excel spreadsheet
+rep1 = read_excel("data/supplements/Gilbert2019/pr8b00382_si_002.xlsx", 
+                  sheet = 2)
+
+# extract LFQ protein quantitations
+mat1 = rep1 %>%
+  dplyr::select(starts_with('LFQ')) %>%
+  as.matrix() %>%
+  set_rownames(rep1$`Protein IDs`)
 ```
 
 ## Preprocessing CF-MS data
