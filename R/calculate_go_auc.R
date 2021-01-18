@@ -13,10 +13,14 @@
 #' 
 #' @param pairs a matrix of dimensions (# of proteins) x (# of proteins), 
 #'   scoring every possible protein pair, in which higher values reflect more 
-#'   similar pairs, e.g. as returned by \link{score_pairs}
+#'   similar pairs, e.g. as returned by \link{score_pairs}. Alternatively,
+#'   a data frame of candidate protein-protein interactions, with proteins
+#'   in the first two columns.
 #' @param ann a list in which each entry corresponds to a GO term and contains
 #'   all of the proteins annotated to that GO term, e.g. as returned by 
 #'   \link{as_annotation_list}
+#' @param score_column when \code{pairs} is a data frame, the column that 
+#'   contains the score for each protein pair
 #' @param verbose set to \code{FALSE} to disable messages from the function
 #' 
 #' @return a data frame with four columns:
@@ -36,18 +40,22 @@
 #' @importFrom tidyr drop_na
 #' @importFrom AUC auc roc
 #' @importFrom magrittr %<>%
-calculate_go_auc = function(pairs, ann, verbose = TRUE) {
+calculate_go_auc = function(pairs, ann, score_column = 'cor', verbose = TRUE) {
+  # convert pairs to a data frame
+  if (!is.data.frame(pairs)) {
+    pairs = reshape2::melt(pairs, varnames = c('protein1', 'protein2'),
+                           value.name = 'cor') %>%
+      drop_na() %>%
+      filter(as.integer(protein1) < as.integer(protein2))
+  } else {
+    colnames(pairs)[c(1, 2)] = c('protein1', 'protein2')
+  }
+  
   # keep only proteins that have at least one GO annotation
   go_terms = unique(unlist(ann))
-  proteins = rownames(pairs)
-  keep = proteins %in% unlist(ann)
-  pairs %<>% extract(keep, keep)
-  
-  # convert pairs to a data frame
-  pairs = reshape2::melt(pairs, varnames = c('protein1', 'protein2'),
-                         value.name = 'cor') %>%
-    drop_na() %>%
-    filter(as.integer(protein1) < as.integer(protein2))
+  proteins = with(pairs, unique(c(protein1, protein2)))
+  keep = intersect(proteins, unlist(ann))
+  pairs %<>% filter(protein1 %in% keep, protein2 %in% keep)
   
   # map over GO terms
   results = data.frame()

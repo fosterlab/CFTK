@@ -101,73 +101,6 @@ To keep only the first UniProt accession associated with each protein group, ent
 rownames(mat) %<>% gsub(";.*$", "", .)
 ```
 
-## Loading known protein complexes from CORUM
-
-Investigators often seek to compare CF-MS data to known protein complexes for a variety of purposes.
-For this reason, CFTK provides a convenience function to read protein complex data distributed through the CORUM database [@giurgiu_2019], using the `read_corum()` function, although CFTK is similarly agnostic to the source of known protein complexes (or binary protein-protein interactions) used for CF-MS data analysis. 
-This function allows the user to map complex subunits to either UniProt accessions, Entrez gene IDs, or gene names.
-CFTK also provides a variety of functions to convert protein complex data between various R data structures, including tidy data frames, lists, adjacency matrices, and pairwise data frames enumerating all intra-complex interactions.
-
-To read the 'core' set of CORUM protein complexes, mapping subunits to their gene symbols, run the following function:
-
-```{r}
-corum = read_corum("data-raw/CORUM/coreComplexes.txt.gz", identifiers = 'gene_name')
-head(corum)
-```
-
-The `read_corum()` function returns a data frame in which the first column contains complex names, and the second column contains complex subunits.
-Often, however, we need to convert this data into a different format.
-For example, we might wish to convert this data frame into a list, where each entry represents a protein complex and contains a vector of its subunits. 
-This can be achieved using the function `as_annotation_list()`:
-
-```{r}
-complex_list = as_annotation_list(corum, 'complex', 'subunit')
-str(complex_list[1:5])
-```
-
-Alternatively, we might wish to enunmerate all possible pairs of proteins that are members of the same protein complex.
-From a list of protein complexes, we can construct a pairwise data frame of intra-complex pairs using the function `to_pairwise_df()`:
-
-```{r}
-complex_pairs = to_pairwise_df(complex_list)
-head(complex_pairs)
-```
-
-Finally, we might wish to create an adjacency matrix, in which each cell represents a potential protein-protein interaction and intra-complex pairs are marked as ones. 
-This can be done from the pairwise data frame using the function `to_adjacency_matrix()`:
-
-```{r}
-complex_adj = to_adjacency_matrix(complex_pairs)
-str(complex_adj)
-```
-
-These different representations of protein complexes are used by various functions throughout the CFTK package.
-
-## Loading functional annotations from the Gene Ontology
-
-CFTK also provides a utility function to read protein function annotations from the Gene Ontology in GAF format, implemented in the function `read_gaf()`. 
-This function also allows users to filter the GO: for instance, by removing annotations with less reliable or potentially recursive evidence codes, such as 'IEA' (inferred by electronic annotation) or 'IPI' (inferred from physical interaction).
-To read Gene Ontology annotations for human, removing interactions with the code 'IEA', run the following function:
-
-```{r warning=FALSE}
-goa = read_gaf("data-raw/GO/goa_human.gaf.gz", filter_evidence = "IEA")
-head(goa)
-```
-
-CFTK also provides a convenience function, `go_roots()`, which returns a vector containing the Gene Ontology codes for 'biological process', 'molecular function', and 'cellular compartment'.
-This function can be used to filter these terms, which are usually considered uninteresting, from the set of annotations:
-
-```{r}
-goa %<>% filter(!`GO ID` %in% go_roots())
-```
-
-To create a list in which each entry is a GO term, and contains a vector of all proteins annotated to that GO term, we can again make use of the function `as_annotation_list()`: 
-
-```{r}
-go_ann = as_annotation_list(goa, 'GO ID', 'DB Object Symbol')
-str(go_ann[1:5])
-```
-
 ## Preprocessing CF-MS data
 
 Having read one or more CF-MS datasets into an R session, CFTK now provides several functions to pre-process the data. 
@@ -202,7 +135,7 @@ ii. log-transform chromatograms (optional)
 iii. handle missing values
 iv. quantile normalization (optional)
 
-## Identifying co-eluting protein pairs
+## Computing features for protien pairs
 
 One of the central tasks in CF-MS data analysis is to identify pairs (or groups) of proteins with similar patterns of elution across a chromatographic separation.
 This is commonly achieved using ubiquitous measures of association such as the Pearson correlation or Euclidean distance.
@@ -280,6 +213,79 @@ The `impute_missing_features()` function can be used to replace these missing va
 feature_df %<>% impute_missing_features()
 ```
 
+## Loading known protein complexes from CORUM
+
+At this point, we have loaded a collection of CF-MS datasets, preprocessed them, computed one or more features for each dataset, and combined multiple features into a single data frame. 
+The next step is to distinguish protein-protein interactions from non-interacting pairs, based on these features.
+To achieve this, CFTK uses a supervised machine-learning framework. 
+Conceptually, CFTK takes a set of known protein-protein interactions as input, and learns what values the features we have computed tend to take on for known interacting pairs.
+To do so, CFTK requires a set of known protein-protein interactions to learn from. 
+CFTK provides a convenience function to read protein complex data distributed through the CORUM database [@giurgiu_2019], using the `read_corum()` function, which allows the user to map complex subunits to either UniProt accessions, Entrez gene IDs, or gene names.
+However, CFTK is agnostic to the source of known protein complexes (or binary protein-protein interactions) used for CF-MS data analysis, and can easily learn from an alternative resource of known protein-protein interactions. 
+CFTK also provides a variety of functions to convert protein complex data between various R data structures, including tidy data frames, lists, adjacency matrices, and pairwise data frames enumerating all intra-complex interactions.
+
+To read the 'core' set of CORUM protein complexes, mapping subunits to their gene symbols, run the following function:
+
+```{r}
+corum = read_corum("data-raw/CORUM/coreComplexes.txt.gz", identifiers = 'gene_name')
+head(corum)
+```
+
+The `read_corum()` function returns a data frame in which the first column contains complex names, and the second column contains complex subunits.
+Often, however, we need to convert this data into a different format.
+For example, we might wish to convert this data frame into a list, where each entry represents a protein complex and contains a vector of its subunits. 
+This can be achieved using the function `as_annotation_list()`:
+
+```{r}
+complex_list = as_annotation_list(corum, 'complex', 'subunit')
+str(complex_list[1:5])
+```
+
+Alternatively, we might wish to enunmerate all possible pairs of proteins that are members of the same protein complex.
+From a list of protein complexes, we can construct a pairwise data frame of intra-complex pairs using the function `to_pairwise_df()`:
+
+```{r}
+complex_pairs = to_pairwise_df(complex_list)
+head(complex_pairs)
+```
+
+Finally, we might wish to create an adjacency matrix, in which each cell represents a potential protein-protein interaction and intra-complex pairs are marked as ones. 
+This can be done from the pairwise data frame using the function `to_adjacency_matrix()`:
+
+```{r}
+complex_adj = to_adjacency_matrix(complex_pairs)
+str(complex_adj)
+```
+
+These different representations of protein complexes are used by various functions throughout the CFTK package.
+
+## Loading functional annotations from the Gene Ontology
+
+CFTK also provides a utility function to read protein function annotations from the Gene Ontology in GAF format, implemented in the function `read_gaf()`. 
+This function also allows users to filter the GO: for instance, by removing annotations with less reliable or potentially recursive evidence codes, such as 'IEA' (inferred by electronic annotation) or 'IPI' (inferred from physical interaction).
+To read Gene Ontology annotations for human, removing interactions with the code 'IEA', run the following function:
+
+```{r warning=FALSE}
+goa = read_gaf("data-raw/GO/goa_human.gaf.gz", filter_evidence = "IEA")
+head(goa)
+```
+
+CFTK also provides a convenience function, `go_roots()`, which returns a vector containing the Gene Ontology codes for 'biological process', 'molecular function', and 'cellular compartment'.
+This function can be used to filter these terms, which are usually considered uninteresting, from the set of annotations:
+
+```{r}
+goa %<>% filter(!`GO ID` %in% go_roots())
+```
+
+To create a list in which each entry is a GO term, and contains a vector of all proteins annotated to that GO term, we can again make use of the function `as_annotation_list()`: 
+
+```{r}
+go_ann = as_annotation_list(goa, 'GO ID', 'DB Object Symbol')
+str(go_ann[1:5])
+```
+
+## Identifying co-eluting protein pairs
+
 Having calculated a series of features for this experiment, we are now ready to provide it as input to the cross-validation procedure, along with the complexes from the CORUM database that we loaded in above.
 This procedure is implemented in the `score_interactions()` function, which allows the user to specify the number of cross-validation folds to perform (the default is 10) and select a classifier (one of 'NB' for naive Bayes, 'RF' for random forest, 'SVM' for support vector machine, or 'LR' for logistic regression). 
 The `score_interactions()` function also allows the user to control the way in which cross-validation is performed.
@@ -288,11 +294,75 @@ Although splitting complexes by interacting pairs provides more data to the clas
 These cross-validation procedures are implemented in the `split_by()` function.
 
 To run the `score_interactions()` function, enter the following command.
-(Note that this can take quite a while to run, depending on the size of the dataset, classifier selection, and number of cross-validation folds, so the code below is not run within this vignette). 
+(Please note that this can take quite a while to run, depending on the size of the dataset, classifier selection, and number of cross-validation folds).
+
+```{r}
+interactions = score_interactions(feature_df, complex_pairs, n_folds = 3, classifier = 'NB')
+head(interactions)
+```
+
+## Next steps
+
+The output of the `score_interactions` function is a ranked list of candidate protein-protein interactions.
+Each possible protein pair is associated with a score, assigned by the machine-learning classifier, that reflects the likelihood of a physical interaction occurring.
+A subset of protein pairs that were among the known protein-protein interactions used to train the classifier may also have an entry in the fourth column `label`. 
+The value of this column is `1` for known protein-protein interactions, `0` for non-interacting proteins known to participate in at least one protein complex ("inter-complex interactions"), and `NA` for proteins not found in the training dataset.
+
+Many different analyses are possible from this point.
+One common workflow involves keeping only the largest subset of interactions above some user-defined precision threshold (where precision is defined as the proportion of true positives among the labelled pairs). 
+The `calculate_precision` function provides a means to compute the precision for each row within the ranked list:
+
+```{r}
+interactions %<>% mutate(precision = calculate_precision(label))
+head(interactions)
+```
+
+Once the precision has been calculated, the `threshold_precision` function can be applied to select interactions above a given precision.
+For instance, to retain only the network of interactions that surpass a 50% precision threshold, enter the following command: 
+
+```{r}
+net50 = threshold_precision(interactions, 0.5)
+dim(net50)
+```
+
+Further analyses of the resulting high-confidence interaction network will generally require the use of other R packages.
+One especially common R package for network analysis is the `igraph` R package.
+Although it is outside the scope of this vignette to provide a complete guide to the functionality of the `igraph` package, we note that the filtered list of interactions can be converted to an unweighted, undirected graph using the following command:
 
 ```{r eval=FALSE}
 ## not run
-interactions = score_interactions(feature_df, complex_pairs, n_folds = 3, classifier = 'NB')
+g = net50 %>% 
+  dplyr::select(protein_A, protein_B) %>%
+  igraph::graph_from_data_frame(directed = FALSE)
+```
+
+For further details about installing and using `igraph`, please see the package documentation at [https://igraph.org/r/](https://igraph.org/r/). 
+
+An alternative set of analyses operates on the entire ranked list of protein pairs, without first filtering these to a high-confidence subset. 
+For instance, we can compute the area under the receiver operating characteristic curve (AUROC, or AUC) for the _entire_ ranked list of protein pairs using the `calculate_complex_auc` function:
+
+```{r}
+auc = calculate_complex_auc(interactions, complex_adj, score_column = 'score')
+format(auc, digits = 3)
+```
+
+An analogous function, `calculate_go_auc`, is provided to perform AUROC analysis using annotations from the Gene Ontology as the ground truth, instead of membership in known protein-protein interactions.
+The major difference between the two functions is that `calculate_go_auc` returns a data frame, instead of a single value, containing results for each GO term that was provided as input. 
+Enter `?calculate_go_auc` into the R command prompt for further details. 
+
+Finally, users may simply wish to visualize the quality of the resulting networks.
+To this end, CFTK provides two plotting functions, `plot_roc` and `plot_pr`, which take the data frame output by `score_interactions` as input (that is, a data frame of protein pairs, each associated with a score and a label), and use the information therein to plot receiver operating characteristic (ROC) or precision-recall (PR) curves, respectively. 
+To plot a ROC curve for the inferred network, for instance, enter the following command:
+
+```{r fig.align='center', fig.width=2.5, fig.height=2.5}
+plot_roc(interactions)
+```
+
+Alternatively, to visualize the precision-recall curve, use the `plot_pr` function.
+The following command plots the precision over the first 25,000 protein pairs:
+
+```{r fig.align='center', fig.width=3, fig.height=2.5}
+plot_pr(interactions, max_n = 25e3)
 ```
 
 This concludes the demonstration of the main functionality in the CFTK package.

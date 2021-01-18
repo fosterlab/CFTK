@@ -4,16 +4,21 @@
 \alias{calculate_complex_auc}
 \title{Evaluate the recovery of known protein complexes}
 \usage{
-calculate_complex_auc(pairs, adj)
+calculate_complex_auc(pairs, adj, score_column = "cor")
 }
 \arguments{
 \item{pairs}{a matrix of dimensions (# of proteins) x (# of proteins), 
 scoring every possible protein pair, in which higher values reflect more 
-similar pairs, e.g. as returned by \link{score_pairs}}
+similar pairs, e.g. as returned by \link{score_pairs}. Alternatively,
+a data frame of candidate protein-protein interactions, with proteins
+in the first two columns.}
 
 \item{adj}{an adjacency matrix between all complex proteins, with 
 intra-complex pairs as \code{1}s and inter-complex pairs as \code{0}s,
 e.g. as returned by \link{to_adjacency_matrix}}
+
+\item{score_column}{when \code{pairs} is a data frame, the column that 
+contains the score for each protein pair}
 }
 \value{
 the area under the receiver operating characteristic curve

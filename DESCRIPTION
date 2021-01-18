@@ -1,6 +1,6 @@
 Package: CFTK
 Title: The Co-Fractionation Toolkit
-Version: 0.0.1
+Version: 0.0.2
 Authors@R: c(
   person("Michael", "Skinnider", email = "michael.skinnider@msl.ubc.ca",
          role = c("aut", "trl", "cre")),

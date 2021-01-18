@@ -4,16 +4,21 @@
 \alias{calculate_go_auc}
 \title{Evaluate the recovery of proteins annotated to the same GO term}
 \usage{
-calculate_go_auc(pairs, ann, verbose = TRUE)
+calculate_go_auc(pairs, ann, score_column = "cor", verbose = TRUE)
 }
 \arguments{
 \item{pairs}{a matrix of dimensions (# of proteins) x (# of proteins), 
 scoring every possible protein pair, in which higher values reflect more 
-similar pairs, e.g. as returned by \link{score_pairs}}
+similar pairs, e.g. as returned by \link{score_pairs}. Alternatively,
+a data frame of candidate protein-protein interactions, with proteins
+in the first two columns.}
 
 \item{ann}{a list in which each entry corresponds to a GO term and contains
 all of the proteins annotated to that GO term, e.g. as returned by 
 \link{as_annotation_list}}
+
+\item{score_column}{when \code{pairs} is a data frame, the column that 
+contains the score for each protein pair}
 
 \item{verbose}{set to \code{FALSE} to disable messages from the function}
 }

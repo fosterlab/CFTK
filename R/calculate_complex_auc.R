@@ -11,10 +11,14 @@
 #' 
 #' @param pairs a matrix of dimensions (# of proteins) x (# of proteins), 
 #'   scoring every possible protein pair, in which higher values reflect more 
-#'   similar pairs, e.g. as returned by \link{score_pairs}
+#'   similar pairs, e.g. as returned by \link{score_pairs}. Alternatively,
+#'   a data frame of candidate protein-protein interactions, with proteins
+#'   in the first two columns.
 #' @param adj an adjacency matrix between all complex proteins, with 
 #'   intra-complex pairs as \code{1}s and inter-complex pairs as \code{0}s,
 #'   e.g. as returned by \link{to_adjacency_matrix}
+#' @param score_column when \code{pairs} is a data frame, the column that 
+#'   contains the score for each protein pair
 #' 
 #' @return the area under the receiver operating characteristic curve 
 #' 
@@ -22,19 +26,25 @@
 #' @importFrom dplyr filter n_distinct
 #' @importFrom tidyr drop_na
 #' @importFrom AUC auc roc 
-calculate_complex_auc = function(pairs, adj) {
+#' 
+#' @export
+calculate_complex_auc = function(pairs, adj, score_column = 'cor') {
   # convert pairs to a data frame
-  pairs = reshape2::melt(pairs, varnames = c('protein1', 'protein2'),
-                         value.name = 'cor') %>%
-    drop_na() %>%
-    filter(as.integer(protein1) < as.integer(protein2))
+  if (!is.data.frame(pairs)) {
+    pairs = reshape2::melt(pairs, varnames = c('protein1', 'protein2'),
+                           value.name = 'cor') %>%
+      drop_na() %>%
+      filter(as.integer(protein1) < as.integer(protein2))
+  } else {
+    colnames(pairs)[c(1, 2)] = c('protein1', 'protein2')
+  }
   
   # filter to proteins in the complexes
   pairs0 = pairs %>%
-    filter(gene1 %in% rownames(adj), gene2 %in% rownames(adj))
+    filter(protein1 %in% rownames(adj), protein2 %in% rownames(adj))
   
   # calculate AUC
-  x = pairs0$cor
+  x = pairs[[score_column]]
   y = adj[as.matrix(pairs0[, 1:2])]
   if (nrow(pairs0) == 0) 
     stop("no proteins overlap with the complexes")
